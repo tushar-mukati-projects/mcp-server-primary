@@ -14,9 +14,7 @@ oauthRouter.get("/.well-known/oauth-protected-resource", (_req, res) => {
 
 oauthRouter.get("/.well-known/oauth-authorization-server", async (_req, res) => {
   try {
-    const metaRes = await fetch(
-      `${env.KEYCLOAK_ISSUER}/.well-known/oauth-authorization-server`,
-    );
+    const metaRes = await fetch(`${env.KEYCLOAK_ISSUER}/.well-known/oauth-authorization-server`);
     const metadata = (await metaRes.json()) as Record<string, unknown>;
 
     const realmMatch = env.KEYCLOAK_ISSUER!.replace(/\/$/, "").split("/realms/");
@@ -52,9 +50,7 @@ oauthRouter.all("/keycloak-proxy/{*path}", async (req, res) => {
     const proxyRes = await fetch(targetUrl, {
       method: req.method,
       headers,
-      body: ["GET", "HEAD"].includes(req.method)
-        ? undefined
-        : JSON.stringify(req.body),
+      body: ["GET", "HEAD"].includes(req.method) ? undefined : JSON.stringify(req.body),
     });
 
     const data = JSON.parse(await proxyRes.text()) as Record<string, unknown>;

@@ -14,9 +14,7 @@ oauthRouter.get("/.well-known/oauth-protected-resource", (_req, res) => {
 
 oauthRouter.get("/.well-known/oauth-authorization-server", async (_req, res) => {
   try {
-    const oidcRes = await fetch(
-      `${env.CLERK_ISSUER}/.well-known/openid-configuration`,
-    );
+    const oidcRes = await fetch(`${env.CLERK_ISSUER}/.well-known/openid-configuration`);
     const metadata = (await oidcRes.json()) as Record<string, unknown>;
 
     metadata.registration_endpoint = `${env.MCP_SERVER_URL}/oauth/register`;
@@ -32,21 +30,18 @@ oauthRouter.post("/oauth/register", async (req, res) => {
   const { redirect_uris, client_name } = req.body;
 
   try {
-    const clerkRes = await fetch(
-      "https://api.clerk.com/v1/oauth_applications",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${env.CLERK_SECRET_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: client_name || "mcp-client",
-          callback_url: redirect_uris?.[0] || "http://localhost",
-          scopes: "openid profile email",
-        }),
+    const clerkRes = await fetch("https://api.clerk.com/v1/oauth_applications", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.CLERK_SECRET_KEY}`,
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({
+        name: client_name || "mcp-client",
+        callback_url: redirect_uris?.[0] || "http://localhost",
+        scopes: "openid profile email",
+      }),
+    });
 
     if (!clerkRes.ok) {
       const error = await clerkRes.text();

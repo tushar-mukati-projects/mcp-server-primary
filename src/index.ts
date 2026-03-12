@@ -19,7 +19,9 @@ app.post("/mcp", requireAuth, async (req, res) => {
   const server = new McpServer({ name: "my-portfolio-mcp", version: "1.0.0" });
   registerTools(server);
 
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined as unknown as (() => string) });
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined as unknown as () => string,
+  });
   await server.connect(transport);
   await transport.handleRequest(req, res, req.body);
 });
@@ -29,7 +31,10 @@ app.listen(env.PORT, () =>
 );
 
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
-    interface Request { auth?: import("@modelcontextprotocol/sdk/server/auth/types.js").AuthInfo; }
+    interface Request {
+      auth?: import("@modelcontextprotocol/sdk/server/auth/types.js").AuthInfo;
+    }
   }
 }

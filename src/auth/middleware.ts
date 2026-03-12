@@ -10,7 +10,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     : null;
 
   if (!token) {
-    res.status(401)
+    res
+      .status(401)
       .set("WWW-Authenticate", `Bearer resource_metadata="${resourceMetadataUrl}"`)
       .json({ jsonrpc: "2.0", error: { code: -32001, message: "Authentication required" } });
     return;
@@ -20,8 +21,12 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     req.auth = await provider.verifyToken(token);
     next();
   } catch {
-    res.status(401)
-      .set("WWW-Authenticate", `Bearer resource_metadata="${resourceMetadataUrl}", error="invalid_token"`)
+    res
+      .status(401)
+      .set(
+        "WWW-Authenticate",
+        `Bearer resource_metadata="${resourceMetadataUrl}", error="invalid_token"`,
+      )
       .json({ jsonrpc: "2.0", error: { code: -32001, message: "Invalid token" } });
   }
 }
