@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { verifyClerkToken } from "./clerk-token-verifier.js";
+import { env } from "../config/env.js";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 
 // Extend Express Request to carry auth info
@@ -12,34 +13,54 @@ declare global {
 }
 
 /**
- * Optional bearer auth middleware.
- * If a valid Bearer token is present, sets req.auth.
- * If no token or invalid token, continues without auth (does NOT reject).
- * Protected tools check req.auth themselves.
+ * Required bearer auth middleware.
+ * Returns 401 with WWW-Authenticate header if token is missing or invalid.
+ * The WWW-Authenticate header points MCP clients to OAuth discovery.
  */
-export async function optionalBearerAuth(
+export async function requireBearerAuth(
   req: Request,
-  _res: Response,
+  res: Response,
   next: NextFunction
 ): Promise<void> {
   const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith("Bearer ")) {
-    next();
-    return;
-  }
+  const token = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice(7).trim()
+    : null;
 
-  const token = authHeader.slice(7).trim();
   if (!token) {
-    next();
+    res
+      .status(401)
+      .set(
+        "WWW-Authenticate",
+        `Bearer resource_metadata="${env.MCP_SERVER_URL}/.well-known/oauth-protected-resource"`
+      )
+      .json({
+        jsonrpc: "2.0",
+        error: {
+          code: -32001,
+          message: "Authentication required",
+        },
+      });
     return;
   }
 
   try {
     req.auth = await verifyClerkToken(token);
+    next();
   } catch (err) {
-    // Token invalid — continue without auth, tool handlers will decide
     console.warn("Bearer token verification failed:", err);
+    res
+      .status(401)
+      .set(
+        "WWW-Authenticate",
+        `Bearer resource_metadata="${env.MCP_SERVER_URL}/.well-known/oauth-protected-resource", error="invalid_token"`
+      )
+      .json({
+        jsonrpc: "2.0",
+        error: {
+          code: -32001,
+          message: "Invalid or expired token",
+        },
+      });
   }
-
-  next();
 }

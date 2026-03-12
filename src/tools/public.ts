@@ -1,30 +1,33 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 /**
- * Register public tools (no auth required).
- * These are placeholder tools — you'll replace them with your actual portfolio use cases.
+ * Register public tools.
+ * Auth is enforced at the transport level — all users calling these are authenticated.
  */
 export function registerPublicTools(server: McpServer) {
-  server.tool("ping", "Health check — returns pong. No auth required.", async () => {
-    return {
-      content: [{ type: "text", text: "pong" }],
-    };
-  });
+  server.tool(
+    "ping",
+    "Health check — returns pong.",
+    async () => {
+      return {
+        content: [{ type: "text" as const, text: "pong" }],
+      };
+    }
+  );
 
   server.tool(
     "server_info",
-    "Returns basic information about this MCP server. No auth required.",
+    "Returns basic information about this MCP server.",
     async () => {
       return {
         content: [
           {
-            type: "text",
+            type: "text" as const,
             text: JSON.stringify(
               {
                 name: "my-portfolio-mcp",
                 version: "1.0.0",
-                description:
-                  "Personal portfolio MCP server with public and authenticated tools.",
+                description: "Personal portfolio MCP server.",
               },
               null,
               2

@@ -1,27 +1,15 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 /**
- * Register protected tools (auth required).
- * These are placeholder tools — you'll replace them with your actual portfolio use cases.
+ * Register protected tools.
+ * Auth is enforced at the transport level, so extra.authInfo is always present.
  */
 export function registerProtectedTools(server: McpServer) {
   server.tool(
     "whoami",
-    "Returns the authenticated user's info. Requires OAuth authentication.",
+    "Returns the authenticated user's info.",
     async (extra) => {
-      const authInfo = extra.authInfo;
-      if (!authInfo) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: "Not authenticated. Please authenticate via OAuth to use this tool.",
-            },
-          ],
-          isError: true,
-        };
-      }
-
+      const authInfo = extra.authInfo!;
       return {
         content: [
           {

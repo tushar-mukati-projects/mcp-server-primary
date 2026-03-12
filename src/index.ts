@@ -6,7 +6,7 @@ import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 
 import { env } from "./config/env.js";
 import { oauthRouter } from "./auth/oauth-routes.js";
-import { optionalBearerAuth } from "./auth/middleware.js";
+import { requireBearerAuth } from "./auth/middleware.js";
 import { createMcpServer } from "./server/create-mcp-server.js";
 import {
   getSession,
@@ -27,18 +27,18 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// OAuth 2.1 discovery & registration routes (no auth)
+// OAuth 2.1 discovery & registration routes (no auth needed for these)
 app.use(oauthRouter);
 
-// Health check
+// Health check (no auth)
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-// ---------- MCP Streamable HTTP Transport ----------
+// ---------- MCP Streamable HTTP Transport (all require auth) ----------
 
 // POST /mcp — main MCP message endpoint
-app.post("/mcp", optionalBearerAuth, async (req, res) => {
+app.post("/mcp", requireBearerAuth, async (req, res) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
 
   // Existing session
@@ -48,7 +48,6 @@ app.post("/mcp", optionalBearerAuth, async (req, res) => {
       res.status(404).json({ error: "Session not found" });
       return;
     }
-    // req.auth is set by optionalBearerAuth — SDK reads it from req.auth
     await session.transport.handleRequest(req, res, req.body);
     return;
   }
@@ -82,7 +81,7 @@ app.post("/mcp", optionalBearerAuth, async (req, res) => {
 });
 
 // GET /mcp — SSE stream for server-initiated messages
-app.get("/mcp", optionalBearerAuth, async (req, res) => {
+app.get("/mcp", requireBearerAuth, async (req, res) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
   if (!sessionId) {
     res.status(400).json({ error: "Missing mcp-session-id header" });
@@ -99,7 +98,7 @@ app.get("/mcp", optionalBearerAuth, async (req, res) => {
 });
 
 // DELETE /mcp — close session
-app.delete("/mcp", async (req, res) => {
+app.delete("/mcp", requireBearerAuth, async (req, res) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
   if (!sessionId) {
     res.status(400).json({ error: "Missing mcp-session-id header" });
@@ -114,7 +113,7 @@ app.delete("/mcp", async (req, res) => {
 
 const server = app.listen(env.PORT, () => {
   console.log(`MCP server running at ${env.MCP_SERVER_URL}`);
-  console.log(`  POST/GET/DELETE /mcp — MCP Streamable HTTP`);
+  console.log(`  POST/GET/DELETE /mcp — MCP (auth required)`);
   console.log(
     `  GET /.well-known/oauth-protected-resource — OAuth Resource Metadata`
   );
