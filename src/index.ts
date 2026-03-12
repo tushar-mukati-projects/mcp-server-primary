@@ -3,7 +3,7 @@ import cors from "cors";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { env } from "./config/env.js";
-import { oauthRouter } from "./auth/oauth/routes.js";
+import { provider } from "./auth/provider.js";
 import { requireAuth } from "./auth/middleware.js";
 import { registerTools } from "./tools/index.js";
 
@@ -11,7 +11,7 @@ const app = express();
 app.use(cors({ origin: "*", exposedHeaders: ["mcp-session-id"] }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(oauthRouter);
+app.use(provider.oauthRouter);
 
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
@@ -24,7 +24,9 @@ app.post("/mcp", requireAuth, async (req, res) => {
   await transport.handleRequest(req, res, req.body);
 });
 
-app.listen(env.PORT, () => console.log(`MCP server running at ${env.MCP_SERVER_URL}`));
+app.listen(env.PORT, () =>
+  console.log(`MCP server (${env.AUTH_PROVIDER}) running at ${env.MCP_SERVER_URL}`),
+);
 
 declare global {
   namespace Express {

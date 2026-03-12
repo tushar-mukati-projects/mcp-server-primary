@@ -30,6 +30,7 @@ services:
     environment:
       PORT: 3001
       MCP_SERVER_URL: http://localhost:3001
+      AUTH_PROVIDER: keycloak
       KEYCLOAK_ISSUER: http://localhost:8080/realms/mcp
     extra_hosts:
       - "localhost:host-gateway"

@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import { verifyToken } from "./token-verifier.js";
+import { provider } from "./provider.js";
 import { env } from "../config/env.js";
 
 const resourceMetadataUrl = `${env.MCP_SERVER_URL}/.well-known/oauth-protected-resource`;
@@ -17,7 +17,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
 
   try {
-    req.auth = await verifyToken(token);
+    req.auth = await provider.verifyToken(token);
     next();
   } catch {
     res.status(401)

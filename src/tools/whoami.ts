@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { decodeJwt } from "jose";
-import { env } from "../config/env.js";
+import { provider } from "../auth/provider.js";
 
 export function register(server: McpServer) {
   server.tool("whoami", "Returns the authenticated user's details.", async (extra) => {
@@ -11,10 +11,9 @@ export function register(server: McpServer) {
 
     const claims = decodeJwt(token);
 
-    // Fetch full user info from Keycloak userinfo endpoint
     let userInfo: Record<string, unknown> = {};
     try {
-      const res = await fetch(`${env.KEYCLOAK_ISSUER}/protocol/openid-connect/userinfo`, {
+      const res = await fetch(provider.userinfoEndpoint, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) userInfo = (await res.json()) as Record<string, unknown>;

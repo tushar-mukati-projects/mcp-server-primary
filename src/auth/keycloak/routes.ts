@@ -14,15 +14,15 @@ oauthRouter.get("/.well-known/oauth-protected-resource", (_req, res) => {
 
 oauthRouter.get("/.well-known/oauth-authorization-server", async (_req, res) => {
   try {
-    const metaRes = await fetch(`${env.KEYCLOAK_ISSUER}/.well-known/oauth-authorization-server`);
+    const metaRes = await fetch(
+      `${env.KEYCLOAK_ISSUER}/.well-known/oauth-authorization-server`,
+    );
     const metadata = (await metaRes.json()) as Record<string, unknown>;
 
-    const realmMatch = env.KEYCLOAK_ISSUER.replace(/\/$/, "").split("/realms/");
+    const realmMatch = env.KEYCLOAK_ISSUER!.replace(/\/$/, "").split("/realms/");
     const realmPath = realmMatch.length > 1 ? `/realms/${realmMatch[1]}` : "";
 
-    metadata.registration_endpoint =
-      `${env.MCP_SERVER_URL}/keycloak-proxy${realmPath}/clients-registrations/openid-connect`;
-
+    metadata.registration_endpoint = `${env.MCP_SERVER_URL}/keycloak-proxy${realmPath}/clients-registrations/openid-connect`;
     metadata.scopes_supported = ["openid", "profile", "email"];
 
     res.json(metadata);
@@ -40,7 +40,7 @@ oauthRouter.all("/keycloak-proxy/{*path}", async (req, res) => {
     return;
   }
 
-  const keycloakBaseUrl = env.KEYCLOAK_ISSUER.split("/realms/")[0];
+  const keycloakBaseUrl = env.KEYCLOAK_ISSUER!.split("/realms/")[0];
   const targetUrl = `${keycloakBaseUrl}/${path}`;
 
   try {
@@ -52,13 +52,18 @@ oauthRouter.all("/keycloak-proxy/{*path}", async (req, res) => {
     const proxyRes = await fetch(targetUrl, {
       method: req.method,
       headers,
-      body: ["GET", "HEAD"].includes(req.method) ? undefined : JSON.stringify(req.body),
+      body: ["GET", "HEAD"].includes(req.method)
+        ? undefined
+        : JSON.stringify(req.body),
     });
 
-    const data = await proxyRes.text();
-    res.status(proxyRes.status);
-    proxyRes.headers.forEach((v, k) => res.set(k, v));
-    res.send(data);
+    const data = JSON.parse(await proxyRes.text()) as Record<string, unknown>;
+
+    if (req.method === "POST" && proxyRes.ok && req.body.redirect_uris) {
+      data.redirect_uris = req.body.redirect_uris;
+    }
+
+    res.status(proxyRes.status).json(data);
   } catch {
     res.status(502).json({ error: "Proxy request failed" });
   }
