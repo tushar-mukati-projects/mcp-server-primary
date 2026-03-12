@@ -1,0 +1,23 @@
+{
+  "name": "my-portfolio-mcp",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "build": "tsc",
+    "start": "bun src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "express": "^5.1.0",
+    "cors": "^2.8.5",
+    "jose": "^6.0.11",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.2",
+    "@types/cors": "^2.8.17",
+    "@types/node": "^22.15.3",
+    "typescript": "^5.8.3"
+  }
+}
