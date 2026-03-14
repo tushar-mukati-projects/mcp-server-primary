@@ -1,16 +1,21 @@
 import express from "express";
 import cors from "cors";
+import path from "path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { env } from "./config/env.js";
 import { provider } from "./auth/provider.js";
 import { requireAuth } from "./auth/middleware.js";
 import { registerTools } from "./tools/index.js";
+import { ensureOutputDir } from "./utils/output.js";
+
+ensureOutputDir();
 
 const app = express();
 app.use(cors({ origin: "*", exposedHeaders: ["mcp-session-id"] }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use("/output", express.static(path.join(process.cwd(), "output")));
 app.use(provider.oauthRouter);
 
 app.get("/health", (_req, res) => res.json({ status: "ok" }));

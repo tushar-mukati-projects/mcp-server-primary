@@ -11,6 +11,9 @@ export const env = z
       .transform((v) => v?.replace(/\/$/, ""))
       .optional(),
     CLERK_SECRET_KEY: z.string().optional(),
+    NEWS_API_KEY: z.string().optional(),
+    OPENAI_API_KEY: z.string().optional(),
+    AI_MODEL: z.string().optional(),
   })
   .refine(
     (d) =>
