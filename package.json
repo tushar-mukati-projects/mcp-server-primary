@@ -6,7 +6,7 @@
     "dev": "bun --watch src/index.ts",
     "build": "tsc",
     "start": "bun src/index.ts",
-    "postinstall": "npx playwright install chromium --with-deps",
+    "postinstall": "node_modules/.bin/playwright install chromium",
     "check": "tsc --noEmit && eslint src/ && prettier --check src/",
     "check:fix": "eslint src/ --fix && prettier --write src/",
     "test": "bun test src/__tests__/"
