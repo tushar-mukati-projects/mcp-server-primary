@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
+    "@supabase/supabase-js": "^2.99.1",
     "cheerio": "^1.2.0",
     "cors": "^2.8.5",
     "docx": "^9.6.1",
@@ -22,6 +23,7 @@
     "playwright": "^1.58.2",
     "pptxgenjs": "^4.0.1",
     "sharp": "^0.34.5",
+    "winston": "^3.19.0",
     "zod": "^3.24.4"
   },
   "devDependencies": {
@@ -30,6 +32,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.2",
     "@types/node": "^22.15.3",
+    "@types/winston": "^2.4.4",
     "eslint": "^10.0.3",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.8.1",

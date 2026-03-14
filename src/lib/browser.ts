@@ -1,10 +1,10 @@
 import { chromium, type Browser } from "playwright";
+import { logger } from "./logger.js";
 
 let browser: Browser | null = null;
 
 export async function getBrowser(): Promise<Browser> {
   if (!browser?.isConnected()) {
-    // Try Playwright's own Chromium first, then fall back to system browsers
     const attempts: Array<() => Promise<Browser>> = [
       () => chromium.launch({ headless: true }),
       () => chromium.launch({ headless: true, channel: "chrome" }),
@@ -15,7 +15,7 @@ export async function getBrowser(): Promise<Browser> {
     for (const attempt of attempts) {
       try {
         browser = await attempt();
-        console.log("[browser] Launched successfully");
+        logger.info("browser launched");
         return browser;
       } catch (e) {
         lastErr = e instanceof Error ? e : new Error(String(e));

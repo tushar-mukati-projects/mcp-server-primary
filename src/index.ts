@@ -3,11 +3,12 @@ import cors from "cors";
 import path from "path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { env } from "./config/env.js";
+import { config } from "./config/config.js";
 import { provider } from "./auth/provider.js";
 import { requireAuth } from "./auth/middleware.js";
 import { registerTools } from "./tools/index.js";
 import { ensureOutputDir } from "./utils/output.js";
+import { logger } from "./lib/logger.js";
 
 ensureOutputDir();
 
@@ -31,8 +32,8 @@ app.post("/mcp", requireAuth, async (req, res) => {
   await transport.handleRequest(req, res, req.body);
 });
 
-app.listen(env.PORT, () =>
-  console.log(`MCP server (${env.AUTH_PROVIDER}) running at ${env.MCP_SERVER_URL}`),
+app.listen(config.port, () =>
+  logger.info(`MCP server (${config.auth.provider}) running at ${config.serverUrl}`),
 );
 
 declare global {

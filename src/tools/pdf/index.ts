@@ -4,6 +4,7 @@ import { aiText } from "../../lib/ai.js";
 import { generatePdfFromHtml } from "../../lib/pdf-renderer.js";
 import { saveOutput } from "../../utils/output.js";
 import { fetchChart, chartToDataUri, type ChartDataset } from "../../lib/quickchart.js";
+import { logger } from "../../lib/logger.js";
 import { PDF_SYSTEM } from "./prompt.js";
 
 const CHART_TAG_RE = /<mcp-chart\s([^>]*)(?:\s*\/?>|>.*?<\/mcp-chart>)/gis;
@@ -19,7 +20,7 @@ function parseTagAttrs(attrStr: string): Record<string, string> {
 async function injectCharts(html: string): Promise<string> {
   const matches = [...html.matchAll(CHART_TAG_RE)];
   if (!matches.length) return html;
-  console.log(`[generate-pdf] injecting ${matches.length} chart(s)`);
+  logger.debug(`generate-pdf: injecting ${matches.length} chart(s)`);
   let result = html;
   for (const match of matches) {
     const a = parseTagAttrs(match[1]);
@@ -66,14 +67,16 @@ export function register(server: McpServer) {
     "Convert markdown or structured content into a professionally designed A4 PDF — styled headings, tables, code blocks, KPI cards, and auto-rendered charts. Returns a download URL.",
     { markdown: z.string().describe("Markdown content to convert to PDF") },
     async ({ markdown }) => {
-      console.log(`[generate-pdf] ${markdown.length} chars`);
+      logger.info(`generate-pdf: start — ${markdown.length} chars`);
       try {
-        const rawHtml = await aiText(PDF_SYSTEM, markdown);
-        console.log(`[generate-pdf] html ${rawHtml.length} chars, injecting charts`);
+        logger.debug("generate-pdf: calling AI for HTML");
+        const rawHtml = await aiText(PDF_SYSTEM, markdown, 16000);
+        logger.debug(`generate-pdf: HTML received ${rawHtml.length} chars, injecting charts`);
         const html = await injectCharts(rawHtml);
+        logger.debug("generate-pdf: rendering PDF");
         const buf = await generatePdfFromHtml(html);
-        const url = saveOutput("document.pdf", buf);
-        console.log(`[generate-pdf] saved ${(buf.length / 1024).toFixed(0)}KB → ${url}`);
+        const url = await saveOutput("document.pdf", buf);
+        logger.info(`generate-pdf: done — ${(buf.length / 1024).toFixed(0)}KB → ${url}`);
         return {
           content: [
             {
@@ -87,7 +90,7 @@ export function register(server: McpServer) {
           ],
         };
       } catch (e) {
-        console.error(`[generate-pdf] Error:`, (e as Error).message);
+        logger.error(`generate-pdf: ${(e as Error).message}`);
         return {
           content: [
             { type: "text" as const, text: JSON.stringify({ error: (e as Error).message }) },

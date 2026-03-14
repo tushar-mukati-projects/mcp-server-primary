@@ -1,12 +1,12 @@
 import { Router } from "express";
-import { env } from "../../config/env.js";
+import { config } from "../../config/config.js";
 
 export const oauthRouter = Router();
 
 oauthRouter.get("/.well-known/oauth-protected-resource", (_req, res) => {
   res.json({
-    resource: env.MCP_SERVER_URL,
-    authorization_servers: [env.MCP_SERVER_URL],
+    resource: config.serverUrl,
+    authorization_servers: [config.serverUrl],
     scopes_supported: ["openid", "profile", "email"],
     bearer_methods_supported: ["header"],
   });
@@ -14,10 +14,10 @@ oauthRouter.get("/.well-known/oauth-protected-resource", (_req, res) => {
 
 oauthRouter.get("/.well-known/oauth-authorization-server", async (_req, res) => {
   try {
-    const oidcRes = await fetch(`${env.CLERK_ISSUER}/.well-known/openid-configuration`);
+    const oidcRes = await fetch(`${config.auth.clerk.issuer}/.well-known/openid-configuration`);
     const metadata = (await oidcRes.json()) as Record<string, unknown>;
 
-    metadata.registration_endpoint = `${env.MCP_SERVER_URL}/oauth/register`;
+    metadata.registration_endpoint = `${config.serverUrl}/oauth/register`;
     metadata.scopes_supported = ["openid", "profile", "email"];
 
     res.json(metadata);
@@ -33,7 +33,7 @@ oauthRouter.post("/oauth/register", async (req, res) => {
     const clerkRes = await fetch("https://api.clerk.com/v1/oauth_applications", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${env.CLERK_SECRET_KEY}`,
+        Authorization: `Bearer ${config.auth.clerk.secretKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

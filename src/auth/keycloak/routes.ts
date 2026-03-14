@@ -1,12 +1,12 @@
 import { Router } from "express";
-import { env } from "../../config/env.js";
+import { config } from "../../config/config.js";
 
 export const oauthRouter = Router();
 
 oauthRouter.get("/.well-known/oauth-protected-resource", (_req, res) => {
   res.json({
-    resource: env.MCP_SERVER_URL,
-    authorization_servers: [env.MCP_SERVER_URL],
+    resource: config.serverUrl,
+    authorization_servers: [config.serverUrl],
     scopes_supported: ["openid", "profile", "email"],
     bearer_methods_supported: ["header"],
   });
@@ -14,13 +14,15 @@ oauthRouter.get("/.well-known/oauth-protected-resource", (_req, res) => {
 
 oauthRouter.get("/.well-known/oauth-authorization-server", async (_req, res) => {
   try {
-    const metaRes = await fetch(`${env.KEYCLOAK_ISSUER}/.well-known/oauth-authorization-server`);
+    const metaRes = await fetch(
+      `${config.auth.keycloak.issuer}/.well-known/oauth-authorization-server`,
+    );
     const metadata = (await metaRes.json()) as Record<string, unknown>;
 
-    const realmMatch = env.KEYCLOAK_ISSUER!.replace(/\/$/, "").split("/realms/");
+    const realmMatch = config.auth.keycloak.issuer!.replace(/\/$/, "").split("/realms/");
     const realmPath = realmMatch.length > 1 ? `/realms/${realmMatch[1]}` : "";
 
-    metadata.registration_endpoint = `${env.MCP_SERVER_URL}/keycloak-proxy${realmPath}/clients-registrations/openid-connect`;
+    metadata.registration_endpoint = `${config.serverUrl}/keycloak-proxy${realmPath}/clients-registrations/openid-connect`;
     metadata.scopes_supported = ["openid", "profile", "email"];
 
     res.json(metadata);
@@ -38,7 +40,7 @@ oauthRouter.all("/keycloak-proxy/{*path}", async (req, res) => {
     return;
   }
 
-  const keycloakBaseUrl = env.KEYCLOAK_ISSUER!.split("/realms/")[0];
+  const keycloakBaseUrl = config.auth.keycloak.issuer!.split("/realms/")[0];
   const targetUrl = `${keycloakBaseUrl}/${path}`;
 
   try {

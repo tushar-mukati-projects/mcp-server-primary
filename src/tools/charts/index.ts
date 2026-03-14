@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { aiJSON } from "../../lib/ai.js";
 import { saveOutput } from "../../utils/output.js";
+import { logger } from "../../lib/logger.js";
 import { CHART_SYSTEM } from "./prompt.js";
 
 interface ChartSpec {
@@ -33,12 +34,14 @@ export function register(server: McpServer) {
       height: z.number().default(500).describe("Chart height in pixels"),
     },
     async ({ markdown, chart_type, width, height }) => {
-      console.log(`[create-charts] chart_type=${chart_type}, size=${width}x${height}`);
+      logger.info(`create-charts: start — type=${chart_type}, size=${width}x${height}`);
       try {
+        logger.debug("create-charts: calling AI for chart spec");
         const typeHint = chart_type === "auto" ? "" : `\n\nUse a "${chart_type}" chart.`;
         const spec = await aiJSON<ChartSpec>(CHART_SYSTEM + typeHint, markdown);
-        console.log(`[create-charts] type=${spec.type}, title="${spec.title}"`);
+        logger.debug(`create-charts: spec received — type=${spec.type}, title="${spec.title}"`);
 
+        logger.debug("create-charts: fetching chart from QuickChart");
         const res = await fetch("https://quickchart.io/chart", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -55,8 +58,8 @@ export function register(server: McpServer) {
 
         const safeName = spec.title.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 50);
         const chart_id = `${safeName}-${Date.now()}`;
-        const url = saveOutput(`${safeName}.png`, buf);
-        console.log(`[create-charts] saved ${(buf.length / 1024) | 0}KB → ${url}`);
+        const url = await saveOutput(`${safeName}.png`, buf);
+        logger.info(`create-charts: done — ${(buf.length / 1024) | 0}KB → ${url}`);
 
         return {
           content: [
@@ -72,7 +75,7 @@ export function register(server: McpServer) {
           ],
         };
       } catch (e) {
-        console.error(`[create-charts] Error:`, (e as Error).message);
+        logger.error(`create-charts: ${(e as Error).message}`);
         return {
           content: [
             { type: "text" as const, text: JSON.stringify({ error: (e as Error).message }) },

@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import { provider } from "./provider.js";
-import { env } from "../config/env.js";
+import { config } from "../config/config.js";
 
-const resourceMetadataUrl = `${env.MCP_SERVER_URL}/.well-known/oauth-protected-resource`;
+const resourceMetadataUrl = `${config.serverUrl}/.well-known/oauth-protected-resource`;
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const token = req.headers.authorization?.startsWith("Bearer ")

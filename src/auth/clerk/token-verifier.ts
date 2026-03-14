@@ -1,12 +1,12 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
-import { env } from "../../config/env.js";
+import { config } from "../../config/config.js";
 
-const jwks = createRemoteJWKSet(new URL(`${env.CLERK_ISSUER}/.well-known/jwks.json`));
+const jwks = createRemoteJWKSet(new URL(`${config.auth.clerk.issuer}/.well-known/jwks.json`));
 
 export async function verifyToken(token: string): Promise<AuthInfo> {
   const { payload } = await jwtVerify(token, jwks, {
-    issuer: env.CLERK_ISSUER,
+    issuer: config.auth.clerk.issuer,
   });
 
   return {

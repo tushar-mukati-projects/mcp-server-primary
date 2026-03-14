@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { env } from "../../config/env.js";
+import { config } from "../../config/config.js";
 
 interface Article {
   title: string;
@@ -26,8 +26,8 @@ function formatArticles(articles: Article[]) {
 }
 
 function requireKey(): string {
-  if (!env.NEWS_API_KEY) throw new Error("NEWS_API_KEY is not configured.");
-  return env.NEWS_API_KEY;
+  if (!config.news.apiKey) throw new Error("NEWS_API_KEY is not configured.");
+  return config.news.apiKey;
 }
 
 function err(e: unknown) {

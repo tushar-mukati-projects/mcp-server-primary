@@ -1,4 +1,4 @@
-import { env } from "../config/env.js";
+import { config } from "../config/config.js";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import type { Router } from "express";
 
@@ -9,13 +9,13 @@ export interface AuthProvider {
 }
 
 async function loadProvider(): Promise<AuthProvider> {
-  if (env.AUTH_PROVIDER === "keycloak") {
+  if (config.auth.provider === "keycloak") {
     const { verifyToken } = await import("./keycloak/token-verifier.js");
     const { oauthRouter } = await import("./keycloak/routes.js");
     return {
       verifyToken,
       oauthRouter,
-      userinfoEndpoint: `${env.KEYCLOAK_ISSUER}/protocol/openid-connect/userinfo`,
+      userinfoEndpoint: `${config.auth.keycloak.issuer}/protocol/openid-connect/userinfo`,
     };
   }
 
@@ -24,7 +24,7 @@ async function loadProvider(): Promise<AuthProvider> {
   return {
     verifyToken,
     oauthRouter,
-    userinfoEndpoint: `${env.CLERK_ISSUER}/oauth/userinfo`,
+    userinfoEndpoint: `${config.auth.clerk.issuer}/oauth/userinfo`,
   };
 }
 

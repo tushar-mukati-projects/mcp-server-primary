@@ -4,6 +4,7 @@ import { writeFileSync, readFileSync, unlinkSync } from "fs";
 import { tmpdir } from "os";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { logger } from "./logger.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -40,9 +41,9 @@ export async function runPlaywrightOp<T>(input: Record<string, unknown>): Promis
 }
 
 export async function generatePdfFromHtml(html: string): Promise<Buffer> {
-  console.log("[pdf-renderer] Spawning Node.js Playwright worker...");
+  logger.debug("pdf-renderer: spawning Playwright worker");
   const result = await runPlaywrightOp<{ data: string }>({ operation: "pdf", html });
   const kb = Math.round((result.data.length * 0.75) / 1024);
-  console.log(`[pdf-renderer] PDF received — ~${kb}KB`);
+  logger.debug(`pdf-renderer: PDF received ~${kb}KB`);
   return Buffer.from(result.data, "base64");
 }

@@ -1,12 +1,14 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
-import { env } from "../../config/env.js";
+import { config } from "../../config/config.js";
 
-const jwks = createRemoteJWKSet(new URL(`${env.KEYCLOAK_ISSUER}/protocol/openid-connect/certs`));
+const jwks = createRemoteJWKSet(
+  new URL(`${config.auth.keycloak.issuer}/protocol/openid-connect/certs`),
+);
 
 export async function verifyToken(token: string): Promise<AuthInfo> {
   const { payload } = await jwtVerify(token, jwks, {
-    issuer: env.KEYCLOAK_ISSUER,
+    issuer: config.auth.keycloak.issuer,
   });
 
   return {

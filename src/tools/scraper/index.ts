@@ -3,6 +3,7 @@ import { z } from "zod";
 import { aiJSON } from "../../lib/ai.js";
 import { runPlaywrightOp } from "../../lib/pdf-renderer.js";
 import { saveOutput } from "../../utils/output.js";
+import { logger } from "../../lib/logger.js";
 import { SCRAPE_SYSTEM } from "./prompt.js";
 
 interface ScrapeResult {
@@ -27,10 +28,11 @@ export function register(server: McpServer) {
         ),
     },
     async ({ url, instruction }) => {
-      console.log(`[smart-scrape] url=${url}`);
+      logger.info(`smart-scrape: start — ${url}`);
       try {
+        logger.debug("smart-scrape: launching browser scrape");
         const raw = await runPlaywrightOp<ScrapeResult>({ operation: "scrape", url });
-        console.log(`[smart-scrape] scraped — title="${raw.title}", ${raw.text.length} chars`);
+        logger.debug(`smart-scrape: scraped — title="${raw.title}", ${raw.text.length} chars`);
 
         const userPrompt = instruction ? `\nFocus: "${instruction}"\n\n` : "";
         const pageData = JSON.stringify(
@@ -39,15 +41,16 @@ export function register(server: McpServer) {
           2,
         );
 
+        logger.debug("smart-scrape: calling AI for analysis");
         const result = await aiJSON<Record<string, unknown>>(
           SCRAPE_SYSTEM,
           `${userPrompt}URL: ${url}\n\n${pageData}`,
         );
-        console.log(`[smart-scrape] done — page_type=${result["page_type"]}`);
+        logger.info(`smart-scrape: done — page_type=${result["page_type"]}`);
 
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       } catch (e) {
-        console.error(`[smart-scrape] Error:`, (e as Error).message);
+        logger.error(`smart-scrape: ${(e as Error).message}`);
         return {
           content: [
             { type: "text" as const, text: JSON.stringify({ error: (e as Error).message }) },
@@ -78,16 +81,17 @@ export function register(server: McpServer) {
         .describe("Max scroll screenshots (only used when scroll_pages=true)"),
     },
     async ({ url, full_page, scroll_pages, max_pages }) => {
-      console.log(`[take-screenshot] url=${url}, scroll_pages=${scroll_pages}`);
+      logger.info(`take-screenshot: start — ${url}, scroll_pages=${scroll_pages}`);
       try {
         if (scroll_pages) {
+          logger.debug("take-screenshot: scroll mode");
           const result = await runPlaywrightOp<{ screenshots: string[] }>({
             operation: "screenshot-scroll",
             url,
             maxPages: max_pages,
           });
           const shots = result.screenshots;
-          console.log(`[take-screenshot] ${shots.length} scroll pages`);
+          logger.debug(`take-screenshot: ${shots.length} scroll pages captured`);
 
           const urls: string[] = [];
           const content: Array<
@@ -95,7 +99,9 @@ export function register(server: McpServer) {
           > = [];
 
           for (let i = 0; i < shots.length; i++) {
-            urls.push(saveOutput(`screenshot-p${i + 1}.png`, Buffer.from(shots[i], "base64")));
+            urls.push(
+              await saveOutput(`screenshot-p${i + 1}.png`, Buffer.from(shots[i], "base64")),
+            );
             content.push({ type: "image" as const, data: shots[i], mimeType: "image/png" });
           }
           content.unshift({
@@ -106,17 +112,19 @@ export function register(server: McpServer) {
               2,
             ),
           });
+          logger.info(`take-screenshot: done — ${shots.length} pages`);
           return { content };
         }
 
+        logger.debug(`take-screenshot: single shot, full_page=${full_page}`);
         const result = await runPlaywrightOp<{ data: string }>({
           operation: "screenshot",
           url,
           fullPage: full_page,
         });
         const buf = Buffer.from(result.data, "base64");
-        const screenshot_url = saveOutput("screenshot.png", buf);
-        console.log(`[take-screenshot] ${(buf.length / 1024) | 0}KB → ${screenshot_url}`);
+        const screenshot_url = await saveOutput("screenshot.png", buf);
+        logger.info(`take-screenshot: done — ${(buf.length / 1024) | 0}KB → ${screenshot_url}`);
 
         return {
           content: [
@@ -137,7 +145,7 @@ export function register(server: McpServer) {
           ],
         };
       } catch (e) {
-        console.error(`[take-screenshot] Error:`, (e as Error).message);
+        logger.error(`take-screenshot: ${(e as Error).message}`);
         return {
           content: [
             { type: "text" as const, text: JSON.stringify({ error: (e as Error).message }) },
