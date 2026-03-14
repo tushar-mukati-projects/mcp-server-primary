@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: my-portfolio-mcp
+    runtime: node
+    buildCommand: bun install && node_modules/.bin/playwright install chromium
+    startCommand: bun src/index.ts
+    autoDeploy: true
