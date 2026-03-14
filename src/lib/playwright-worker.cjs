@@ -21,6 +21,10 @@
 const { chromium } = require("playwright");
 const fs = require("fs");
 
+// Required in cloud/container environments (Render, Docker, CI)
+// Chromium cannot use the sandbox without kernel-level support
+const LAUNCH_ARGS = ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"];
+
 async function run() {
   const [inputPath, outputPath] = process.argv.slice(2);
   const input = JSON.parse(fs.readFileSync(inputPath, "utf8"));
@@ -29,7 +33,7 @@ async function run() {
 
   switch (input.operation) {
     case "pdf": {
-      const browser = await chromium.launch({ headless: true });
+      const browser = await chromium.launch({ headless: true, args: LAUNCH_ARGS });
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
       try {
@@ -55,7 +59,7 @@ async function run() {
     }
 
     case "screenshot": {
-      const browser = await chromium.launch({ headless: true });
+      const browser = await chromium.launch({ headless: true, args: LAUNCH_ARGS });
       const ctx = await browser.newContext({
         viewport: { width: 1280, height: 900 },
         userAgent: input.userAgent,
@@ -77,7 +81,7 @@ async function run() {
     }
 
     case "screenshot-scroll": {
-      const browser = await chromium.launch({ headless: true });
+      const browser = await chromium.launch({ headless: true, args: LAUNCH_ARGS });
       const VIEWPORT_H = 900;
       const ctx = await browser.newContext({
         viewport: { width: 1280, height: VIEWPORT_H },
@@ -117,7 +121,7 @@ async function run() {
     }
 
     case "scrape": {
-      const browser = await chromium.launch({ headless: true });
+      const browser = await chromium.launch({ headless: true, args: LAUNCH_ARGS });
       const ctx = await browser.newContext({
         userAgent:
           input.userAgent ??

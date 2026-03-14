@@ -22,10 +22,18 @@ export async function runPlaywrightOp<T>(input: Record<string, unknown>): Promis
       timeout: 60_000,
       env: { ...process.env },
     });
-    const raw = readFileSync(outPath, "utf8");
-    const result = JSON.parse(raw) as T & { error?: string };
-    if ("error" in result && result.error) throw new Error(result.error as string);
-    return result;
+  } catch (execErr) {
+    // Read output file first — worker writes the real error there before exiting
+    let workerMsg = (execErr as Error).message;
+    try {
+      const raw = readFileSync(outPath, "utf8");
+      const out = JSON.parse(raw) as { error?: string };
+      if (out.error) workerMsg = out.error;
+    } catch {
+      /* output file may not exist */
+    }
+    logger.error(`playwright-worker: ${workerMsg}`);
+    throw new Error(workerMsg, { cause: execErr });
   } finally {
     try {
       unlinkSync(inPath);
@@ -38,6 +46,11 @@ export async function runPlaywrightOp<T>(input: Record<string, unknown>): Promis
       /* ignore */
     }
   }
+
+  const raw = readFileSync(outPath, "utf8");
+  const result = JSON.parse(raw) as T & { error?: string };
+  if ("error" in result && result.error) throw new Error(result.error as string);
+  return result;
 }
 
 export async function generatePdfFromHtml(html: string): Promise<Buffer> {
