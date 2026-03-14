@@ -13,38 +13,56 @@ async function loadImage(url?: string, base64?: string): Promise<Buffer> {
 }
 
 const imageInput = {
-  image_url: z.string().url().optional().describe("URL of the image"),
-  image_base64: z.string().optional().describe("Base64-encoded image data"),
+  image_url: z.string().url().optional().describe("Public URL of the source image"),
+  image_base64: z.string().optional().describe("Base64-encoded source image data"),
 };
+
+function err(e: unknown) {
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify({ error: (e as Error).message }) }],
+    isError: true,
+  };
+}
 
 export function register(server: McpServer) {
   server.tool(
     "compress-image",
-    "Compress an image to reduce file size. Returns the compressed image inline.",
+    "Compress an image to reduce file size while preserving visual quality. Returns the compressed image inline alongside savings stats.",
     {
       ...imageInput,
-      quality: z.number().min(1).max(100).default(75).describe("Compression quality 1-100"),
-      format: z.enum(["jpeg", "png", "webp"]).default("webp").describe("Output format"),
+      quality: z
+        .number()
+        .min(1)
+        .max(100)
+        .default(75)
+        .describe("Output quality 1–100 (75 recommended)"),
+      format: z
+        .enum(["jpeg", "png", "webp"])
+        .default("webp")
+        .describe("Output format — WebP gives the best compression"),
     },
     async ({ image_url, image_base64, quality, format }) => {
       try {
         const input = await loadImage(image_url, image_base64);
-        const originalKB = input.length / 1024;
-
         let pipeline = sharp(input);
         if (format === "jpeg") pipeline = pipeline.jpeg({ quality });
         else if (format === "png") pipeline = pipeline.png({ quality });
         else pipeline = pipeline.webp({ quality });
-
         const output = await pipeline.toBuffer();
-        const outputKB = output.length / 1024;
-        const saved = ((1 - output.length / input.length) * 100).toFixed(1);
-
         return {
           content: [
             {
               type: "text" as const,
-              text: `Compressed: ${originalKB.toFixed(1)}KB → ${outputKB.toFixed(1)}KB (${saved}% smaller)`,
+              text: JSON.stringify(
+                {
+                  original_kb: parseFloat((input.length / 1024).toFixed(1)),
+                  compressed_kb: parseFloat((output.length / 1024).toFixed(1)),
+                  saved_pct: parseFloat(((1 - output.length / input.length) * 100).toFixed(1)),
+                  format,
+                },
+                null,
+                2,
+              ),
             },
             {
               type: "image" as const,
@@ -54,17 +72,14 @@ export function register(server: McpServer) {
           ],
         };
       } catch (e) {
-        return {
-          content: [{ type: "text" as const, text: `Error: ${(e as Error).message}` }],
-          isError: true,
-        };
+        return err(e);
       }
     },
   );
 
   server.tool(
     "resize-image",
-    "Resize an image to specific dimensions. Returns the resized image inline.",
+    "Resize an image to specific dimensions. Supports cover, contain, fill, inside, and outside fit modes. Returns the resized image inline.",
     {
       ...imageInput,
       width: z.number().positive().optional().describe("Target width in pixels"),
@@ -72,7 +87,7 @@ export function register(server: McpServer) {
       fit: z
         .enum(["cover", "contain", "fill", "inside", "outside"])
         .default("inside")
-        .describe("How the image should be resized to fit the dimensions"),
+        .describe("Resize fit mode — 'inside' preserves aspect ratio without cropping"),
     },
     async ({ image_url, image_base64, width, height, fit }) => {
       try {
@@ -80,28 +95,31 @@ export function register(server: McpServer) {
         const input = await loadImage(image_url, image_base64);
         const output = await sharp(input).resize({ width, height, fit }).png().toBuffer();
         const meta = await sharp(output).metadata();
-
         return {
           content: [
-            { type: "text" as const, text: `Resized to ${meta.width}x${meta.height}` },
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                { width: meta.width, height: meta.height, format: "png" },
+                null,
+                2,
+              ),
+            },
             { type: "image" as const, data: output.toString("base64"), mimeType: "image/png" },
           ],
         };
       } catch (e) {
-        return {
-          content: [{ type: "text" as const, text: `Error: ${(e as Error).message}` }],
-          isError: true,
-        };
+        return err(e);
       }
     },
   );
 
   server.tool(
-    "convert-format",
-    "Convert an image to a different format (PNG, JPEG, WebP, AVIF).",
+    "convert-image-format",
+    "Convert an image between formats: PNG, JPEG, WebP, or AVIF. Returns the converted image inline.",
     {
       ...imageInput,
-      format: z.enum(["png", "jpeg", "webp", "avif"]).describe("Target format"),
+      format: z.enum(["png", "jpeg", "webp", "avif"]).describe("Target output format"),
     },
     async ({ image_url, image_base64, format }) => {
       try {
@@ -111,7 +129,11 @@ export function register(server: McpServer) {
           content: [
             {
               type: "text" as const,
-              text: `Converted to ${format.toUpperCase()} (${(output.length / 1024).toFixed(1)}KB)`,
+              text: JSON.stringify(
+                { format, size_kb: parseFloat((output.length / 1024).toFixed(1)) },
+                null,
+                2,
+              ),
             },
             {
               type: "image" as const,
@@ -121,47 +143,50 @@ export function register(server: McpServer) {
           ],
         };
       } catch (e) {
-        return {
-          content: [{ type: "text" as const, text: `Error: ${(e as Error).message}` }],
-          isError: true,
-        };
+        return err(e);
       }
     },
   );
 
   server.tool(
     "get-image-info",
-    "Get metadata and statistics about an image (format, dimensions, color info).",
+    "Extract detailed metadata from any image — format, dimensions, color space, DPI, alpha channel, and dominant color.",
     imageInput,
     async ({ image_url, image_base64 }) => {
       try {
         const input = await loadImage(image_url, image_base64);
         const meta = await sharp(input).metadata();
         const stats = await sharp(input).stats();
-
-        const info = {
-          format: meta.format,
-          width: meta.width,
-          height: meta.height,
-          channels: meta.channels,
-          colorSpace: meta.space,
-          bitDepth: meta.depth,
-          dpi: meta.density,
-          hasAlpha: meta.hasAlpha,
-          isProgressive: meta.isProgressive,
-          fileSize: `${(input.length / 1024).toFixed(1)}KB`,
-          dominantColor: {
-            r: Math.round(stats.dominant.r),
-            g: Math.round(stats.dominant.g),
-            b: Math.round(stats.dominant.b),
-          },
-        };
-        return { content: [{ type: "text" as const, text: JSON.stringify(info, null, 2) }] };
-      } catch (e) {
         return {
-          content: [{ type: "text" as const, text: `Error: ${(e as Error).message}` }],
-          isError: true,
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  format: meta.format,
+                  width: meta.width,
+                  height: meta.height,
+                  channels: meta.channels,
+                  color_space: meta.space,
+                  bit_depth: meta.depth,
+                  dpi: meta.density,
+                  has_alpha: meta.hasAlpha,
+                  is_progressive: meta.isProgressive,
+                  file_size_kb: parseFloat((input.length / 1024).toFixed(1)),
+                  dominant_color: {
+                    r: Math.round(stats.dominant.r),
+                    g: Math.round(stats.dominant.g),
+                    b: Math.round(stats.dominant.b),
+                  },
+                },
+                null,
+                2,
+              ),
+            },
+          ],
         };
+      } catch (e) {
+        return err(e);
       }
     },
   );

@@ -1,79 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z } from "zod";
-import * as docxLib from "docx";
-import { aiCode } from "../lib/ai.js";
-import { saveOutput } from "../utils/output.js";
-
-// ── Chart helper (QuickChart → Buffer for ImageRun) ────────────────────
-
-const PALETTE = [
-  "rgba(59,130,246,0.85)",
-  "rgba(16,185,129,0.85)",
-  "rgba(245,158,11,0.85)",
-  "rgba(139,92,246,0.85)",
-  "rgba(239,68,68,0.85)",
-  "rgba(20,184,166,0.85)",
-];
-
-async function buildDocxChart(args: {
-  title: string;
-  type: string;
-  labels: string[];
-  datasets: Array<{ label: string; data: number[] }>;
-  width?: number;
-  height?: number;
-}): Promise<Buffer> {
-  const { title, type, labels, datasets, width = 600, height = 310 } = args;
-
-  const styledDatasets = datasets.map((ds, i) => ({
-    ...ds,
-    backgroundColor:
-      type === "pie" || type === "doughnut"
-        ? PALETTE.slice(0, labels.length)
-        : PALETTE[i % PALETTE.length],
-    borderColor: type === "line" ? PALETTE[i % PALETTE.length].replace("0.85", "1") : undefined,
-    borderWidth: type === "line" ? 2 : undefined,
-    fill: type === "line" ? false : undefined,
-    tension: type === "line" ? 0.3 : undefined,
-    pointRadius: type === "line" ? 4 : undefined,
-  }));
-
-  console.log(`[generate-docx] Fetching chart "${title}" (${type})...`);
-  const res = await fetch("https://quickchart.io/chart", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      width,
-      height,
-      devicePixelRatio: 2,
-      format: "png",
-      backgroundColor: "white",
-      chart: {
-        type,
-        data: { labels, datasets: styledDatasets },
-        options: {
-          plugins: {
-            title: { display: !!title, text: title, font: { size: 13 }, color: "#1a1a2e" },
-            legend: {
-              display: datasets.length > 1 || type === "pie" || type === "doughnut",
-              position: "bottom",
-            },
-          },
-          scales:
-            type === "pie" || type === "doughnut" || type === "radar"
-              ? undefined
-              : { y: { beginAtZero: true, grid: { color: "rgba(0,0,0,0.05)" } } },
-        },
-      },
-    }),
-  });
-  if (!res.ok) throw new Error(`QuickChart error: ${res.status} ${await res.text()}`);
-  return Buffer.from(await res.arrayBuffer());
-}
-
-// ── AI prompt ──────────────────────────────────────────────────────────
-
-const DOCX_CODE_SYSTEM = `You are a docx (npm package v9) expert. Generate JavaScript code to create a beautiful, professional Word document that matches the quality of a well-designed PDF.
+export const DOCX_CODE_SYSTEM = `You are a docx (npm package v9) expert. Generate JavaScript code to create a beautiful, professional Word document that matches the quality of a well-designed PDF.
 
 Your code runs as the body of:  async function buildDocument(lib, buildChart) { YOUR_CODE_HERE }
 The function MUST end with:  return await Packer.toBuffer(doc);
@@ -186,14 +111,12 @@ const doc = new Document({
     properties: { page: { margin: { top: 1080, bottom: 1080, left: 1260, right: 1260 } } },
     children: [
 
-      // Document Title — plain Paragraph, NO heading: property
       new Paragraph({
         spacing: { before: 0, after: 240 },
         border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: "3b82f6", space: 12 } },
         children: [new TextRun({ text: "Business Performance Report: 2024–2025", bold: true, size: 64, color: "1a1a2e", font: "Calibri" })],
       }),
 
-      // H1 — plain Paragraph, NO heading: property
       new Paragraph({
         spacing: { before: 320, after: 160 },
         border: { left: { style: BorderStyle.SINGLE, size: 20, color: "3b82f6", space: 10 } },
@@ -201,13 +124,11 @@ const doc = new Document({
         children: [new TextRun({ text: "1. Executive Summary", bold: true, size: 48, color: "1a1a2e", font: "Calibri" })],
       }),
 
-      // Body text
       new Paragraph({
         spacing: { before: 60, after: 80 },
         children: [new TextRun({ text: "This report outlines strategic growth areas for the upcoming fiscal year.", size: 24, color: "4a4a6a", font: "Calibri" })],
       }),
 
-      // H2
       new Paragraph({
         spacing: { before: 240, after: 100 },
         border: { left: { style: BorderStyle.SINGLE, size: 14, color: "3b82f6", space: 8 } },
@@ -215,7 +136,6 @@ const doc = new Document({
         children: [new TextRun({ text: "2. Revenue Analysis", bold: true, size: 36, color: "1a1a2e", font: "Calibri" })],
       }),
 
-      // Bullets — ONE Paragraph per item
       new Paragraph({
         bullet: { level: 0 },
         spacing: { before: 40, after: 40 },
@@ -227,7 +147,6 @@ const doc = new Document({
         children: [new TextRun({ text: "Professional Services margin improved to 34%", size: 24, color: "4a4a6a", font: "Calibri" })],
       }),
 
-      // Table
       new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
         rows: [
@@ -256,7 +175,6 @@ const doc = new Document({
         ],
       }),
 
-      // Chart image — note type: "png" is REQUIRED
       new Paragraph({ spacing: { before: 240 }, children: [] }),
       new Paragraph({
         alignment: AlignmentType.CENTER,
@@ -285,81 +203,7 @@ CRITICAL RULES:
 6. Every TextRun MUST have font: "Calibri"
 7. Every ImageRun MUST have type: "png"
 8. When content has numerical data, ALWAYS call buildChart and embed with ImageRun — never write "Chart Suggestion"
+8a. NEVER pass placeholder strings or fake data to ImageRun — only embed real chart buffers from buildChart. If no real image data exists, omit the ImageRun entirely.
 9. Fetch ALL charts BEFORE the new Document({...}) call
 10. Only use destructured names — no require, import, fetch, console, process, or fs
 11. MUST end with: return await Packer.toBuffer(doc);`;
-
-// ── Tool registration ──────────────────────────────────────────────────
-
-export function register(server: McpServer) {
-  server.tool(
-    "generate-docx",
-    "AI-powered Word document generation. The AI writes full docx library code to produce a professionally styled DOCX with all content and charts preserved exactly.",
-    {
-      markdown: z.string().describe("Markdown content to convert to a Word document"),
-    },
-    async ({ markdown }) => {
-      console.log(`[generate-docx] Request received — ${markdown.length} chars`);
-      try {
-        console.log(`[generate-docx] Calling AI to generate docx code...`);
-        const code = await aiCode(DOCX_CODE_SYSTEM, markdown);
-        console.log(`[generate-docx] Code generated — ${code.length} chars`);
-
-        console.log(`[generate-docx] Executing docx code...`);
-
-        const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as {
-          new (...args: string[]): (...args: unknown[]) => Promise<unknown>;
-        };
-        const fn = new AsyncFunction("lib", "buildChart", code);
-        let raw: unknown;
-        try {
-          raw = await fn(docxLib, buildDocxChart);
-        } catch (execErr) {
-          console.error(`[generate-docx] Code execution error:`, (execErr as Error).message);
-          console.error(`[generate-docx] Generated code:\n${code}`);
-          throw execErr;
-        }
-        if (raw === undefined || raw === null) {
-          console.error(
-            `[generate-docx] Code returned undefined — missing return statement?\n${code}`,
-          );
-          throw new Error(
-            "DOCX code did not return a buffer. Ensure the code ends with: return await Packer.toBuffer(doc);",
-          );
-        }
-        const buf = Buffer.isBuffer(raw) ? raw : Buffer.from(raw as ArrayBuffer);
-
-        // Extract title from the code for a nice filename
-        const titleMatch = code.match(/text:\s*["']([^"']{5,80})["']/);
-        const title = titleMatch?.[1] ?? "document";
-        const safeName = title.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 50);
-        const url = saveOutput(`${safeName}.docx`, buf);
-        console.log(`[generate-docx] Saved — ${(buf.length / 1024).toFixed(0)}KB, url=${url}`);
-
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify(
-                { docx_url: url, size_kb: Math.round(buf.length / 1024) },
-                null,
-                2,
-              ),
-            },
-          ],
-        };
-      } catch (e) {
-        console.error(`[generate-docx] Error:`, (e as Error).message);
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `Error generating DOCX: ${(e as Error).message}`,
-            },
-          ],
-          isError: true,
-        };
-      }
-    },
-  );
-}
